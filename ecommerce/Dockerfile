@@ -1,3 +1,4 @@
+# Dockerfile
 ### Build and install packages
 FROM python:3.10 as build-python
 
@@ -46,9 +47,10 @@ RUN SECRET_KEY=dummy STATIC_URL=${STATIC_URL} python manage.py collectstatic --n
 
 EXPOSE 8000
 ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE 1
 
 ARG COMMIT_ID
 ARG VERSION
 
-CMD ["python", "manage.py", "runserver", "0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # CMD ["gunicorn", "--bind", ":8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "ecommerce.asgi:application"]

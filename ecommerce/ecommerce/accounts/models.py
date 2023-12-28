@@ -1,15 +1,16 @@
+from datetime import timedelta
 from functools import partial
 from typing import Any
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 
 class Address(models.Model):
-    """Address model."""
-
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     company_name = models.CharField(max_length=255, blank=True)
@@ -27,9 +28,8 @@ class Address(models.Model):
 
 
 class User(AbstractUser):
-    """Custom user model."""
-
     email = models.EmailField(unique=True)
+    phone_number = models.CharField(max_length=30, blank=True)
     addresses = models.ManyToManyField(
         Address, related_name="user_addresses", blank=True
     )
@@ -48,6 +48,9 @@ class User(AbstractUser):
     language_code = models.CharField(max_length=35, blank=True)
     search_document = models.TextField(blank=True, default="")
     uuid = models.UUIDField(default=uuid4, unique=True)
+    pin = models.CharField(max_length=settings.PIN_MAX_LENGTH, blank=True)
+    pin_failures = models.PositiveSmallIntegerField(default=0)
+    pin_sent_at = models.DateTimeField(null=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
@@ -60,3 +63,26 @@ class User(AbstractUser):
 
     def __str__(self) -> str:
         return str(self.uuid)
+
+    def check_pin(self, pin: str) -> bool:
+        """사용자가 제공한 PIN이 올바른지 확인합니다."""
+        return self.pin == pin
+
+    def check_pin_attempts(self) -> bool:
+        """사용자가 PIN을 입력할 수 있는지 확인합니다."""
+        return self.pin_failures <= settings.PIN_FAILURES_LIMIT
+
+    def check_pin_expired(self) -> bool:
+        """사용자의 PIN이 만료되었는지 확인합니다."""
+
+        def _is_expired_pin(self) -> bool:
+            return timezone.now() > self.pin_sent_at + timedelta(
+                seconds=settings.PIN_EXPIRE_TIMEDELTA_SECONDS
+            )
+
+        return self.pin_sent_at is None or _is_expired_pin(self)
+
+    def increase_pin_failures(self) -> None:
+        """사용자의 PIN 실패 횟수를 증가시킵니다."""
+        self.pin_failures += 1
+        self.save(update_fields=["pin_failures"])

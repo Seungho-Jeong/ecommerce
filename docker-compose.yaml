@@ -3,8 +3,11 @@ version: '3.8'
 services:
   api:
     build: ./ecommerce
+    restart: unless-stopped
     ports:
       - 8000:8000
+    volumes:
+      - ./ecommerce:/app
     env_file:
       - .env
     depends_on:
@@ -26,6 +29,7 @@ services:
 
   db:
     image: postgres:14-alpine
+    restart: unless-stopped
     ports:
       - 5432:5432
     env_file:
@@ -41,6 +45,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - 6379:6379
     volumes:
