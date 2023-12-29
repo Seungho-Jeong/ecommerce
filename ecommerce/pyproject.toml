@@ -7,12 +7,13 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-django = ">=4.2,<5.0"
+django = {version = ">=4.2,<5.0", extras = ["argon2"]}
 djangorestframework = ">=3.14,<4.0"
 dj-database-url = ">=2.1,<3.0"
 psycopg2-binary = ">=2.9,<3.0"
 celery = {extras = ["redis"], version = "^5.3.6"}
 argon2-cffi = "^23.1.0"
+coverage = "^7.4.0"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -180,11 +180,14 @@ PIN_MAX_LENGTH = 6
 PIN_FAILURES_LIMIT = 5
 PIN_EXPIRE_TIMEDELTA_SECONDS = 300
 
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = os.environ.get("EMAIL_PORT", 587)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = get_bool_from_env("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = get_bool_from_env("EMAIL_USE_SSL", False)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

@@ -2,11 +2,16 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
+from .exceptions import (
+    ExpiredPinError,
+    InvalidPinError,
+    PasswordValidationError,
+    TooManyPinAttemptsError,
+)
 from .models import Address, User
 
 
@@ -28,12 +33,14 @@ class AccountRegisterSerializer(serializers.ModelSerializer):
     def validate_password(self, value: str) -> str:
         try:
             validate_password(password=value)
-        except ValidationError as exc:
-            raise serializers.ValidationError(str(exc))
+        except serializers.ValidationError as e:
+            raise PasswordValidationError(e) from e
         return value
 
     def create(self, validated_data: dict[str, Any]) -> User:
-        user = User.objects.create_user(**validated_data)
+        user = super().create(validated_data)
+        user.set_password(validated_data["password"])
+        user.save(update_fields=["password"])
         return user
 
     def generate_pin(self) -> str:
@@ -54,28 +61,24 @@ class AccountConfirmationSerializer(serializers.ModelSerializer):
         fields = ("email", "pin")
 
     def validate_pin(self, value: str) -> str:
+        """계정생성 시 발급된 PIN이 유효한지 확인한다."""
+        if self.instance.check_pin_attempts():
+            raise TooManyPinAttemptsError
+        if self.instance.check_pin_expired():
+            raise ExpiredPinError
         if not self.instance.check_pin(value):
             self.instance.increase_pin_failures()
-            raise serializers.ValidationError("Invalid PIN")
+            raise InvalidPinError
         return value
 
-    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
-        if self.instance.check_pin_attempts():
-            raise serializers.ValidationError(
-                "Too many invalid PIN attempts. Please request a new one."
-            )
-        if self.instance.check_pin_expired():
-            raise serializers.ValidationError(
-                "PIN has expired. Please request a new one."
-            )
-        return data
+    def confirm(self) -> User:
+        """계정을 활성화한다."""
+        update_fields = ["is_active"]
+        self.instance.is_active = True
 
-    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
-        instance.pin = ""
-        instance.pin_failures = 0
-        instance.pin_sent_at = None
-        instance.is_active = True
-        instance.save(
-            update_fields=["pin", "pin_failures", "pin_sent_at", "is_active"]
-        )
-        return instance
+        if settings.ENABLE_CONFIRMATION_BY_EMAIL:
+            update_fields.extend(["pin", "pin_failures", "pin_sent_at"])
+            self.instance.pin = ""
+            self.instance.pin_failures = 0
+            self.instance.pin_sent_at = None
+        self.instance.save(update_fields=update_fields)

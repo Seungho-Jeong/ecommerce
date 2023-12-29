@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.mail import send_mail
 
 from ..celeryconf import app
@@ -14,7 +15,8 @@ def _send_account_confirmation_email(email: str, pin: str) -> None:
     """실제로 계정 확인 이메일을 전송합니다."""
     send_mail(
         subject="Verify your account",
-        html_message=f"<H2>Verify your account</H2><br/><p>Enter this code to verify your account: <strong>{pin}</strong></p>",
+        message=f"Enter this code to verify your account: {pin}",
+        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[email],
         fail_silently=False,
     )

@@ -2,6 +2,7 @@ from django.conf import settings
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.serializers import ValidationError
 
 from . import emails
 from .models import User
@@ -18,15 +19,18 @@ class AccountRegisterView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as e:
+            return Response(e.detail, status=e.status_code)
 
-        if serializer.is_valid():
-            user = serializer.save()
-            print(user)
-            if settings.ENABLE_CONFIRMATION_BY_EMAIL:
-                pin = serializer.generate_pin()
-                emails.send_account_confirmation_email(user, pin)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user = serializer.save()
+        if settings.ENABLE_CONFIRMATION_BY_EMAIL:
+            pin = serializer.generate_pin()
+            emails.send_account_confirmation_email(user, pin)
+        else:
+            serializer.confirm(user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class AccountConfirmationView(generics.CreateAPIView):
@@ -44,7 +48,10 @@ class AccountConfirmationView(generics.CreateAPIView):
             )
 
         serializer = self.get_serializer(user, data=request.data)
-        if serializer.is_valid():
-            serializer.update(user, serializer.validated_data)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as e:
+            return Response(e.detail, status=e.status_code)
+
+        serializer.confirm()
+        return Response(serializer.data, status=status.HTTP_200_OK)
