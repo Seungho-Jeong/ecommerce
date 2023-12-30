@@ -2,6 +2,7 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
+from django.middleware.csrf import _get_new_csrf_token
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from rest_framework import serializers
@@ -12,6 +13,7 @@ from .exceptions import (
     PasswordValidationError,
     TooManyPinAttemptsError,
 )
+from .jwt import create_access_token, create_refresh_token
 from .models import Address, User
 
 
@@ -82,3 +84,15 @@ class AccountConfirmationSerializer(serializers.ModelSerializer):
             self.instance.pin_failures = 0
             self.instance.pin_sent_at = None
         self.instance.save(update_fields=update_fields)
+
+
+class TokenCreateSerializer(serializers.ModelSerializer):
+    """토큰 생성 시리얼라이저"""
+
+    class Meta:
+        model = User
+        fields = ("email", "password")
+        extra_kwargs = {
+            "email": {"write_only": True},
+            "password": {"write_only": True},
+        }
