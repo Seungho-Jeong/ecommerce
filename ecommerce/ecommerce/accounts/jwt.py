@@ -6,10 +6,6 @@ from django.utils.timezone import datetime, timedelta
 
 from .models import User
 
-JWT_ALGORITHM = "HS256"
-JWT_ACCESS_TYPE = "access"
-JWT_REFRESH_TYPE = "refresh"
-
 
 def jwt_base_payload(exp_delta: timedelta) -> dict[str, Any]:
     utc_now = datetime.utcnow()
@@ -17,14 +13,16 @@ def jwt_base_payload(exp_delta: timedelta) -> dict[str, Any]:
 
 
 def jwt_encode(payload: dict[str, Any]) -> str:
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return jwt.encode(
+        payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    )
 
 
 def jwt_decode(token: str) -> dict[str, Any]:
     return jwt.decode(
         token,
         settings.SECRET_KEY,
-        algorithms=JWT_ALGORITHM,
+        algorithms=settings.JWT_ALGORITHM,
     )
 
 
@@ -40,7 +38,7 @@ def jwt_user_payload(
             "token": user.jwt_token_key,
             "email": user.email,
             "type": token_type,
-            "user_id": user.uuid,
+            "user_id": str(user.uuid),
             "is_staff": user.is_staff,
         }
     )
@@ -53,7 +51,10 @@ def create_access_token(
     user: User, additional_payload: dict[str, Any] | None = None
 ) -> str:
     payload = jwt_user_payload(
-        user, JWT_ACCESS_TYPE, settings.JWT_TTL_ACCESS, additional_payload
+        user,
+        settings.JWT_ACCESS_TYPE,
+        settings.JWT_TTL_ACCESS,
+        additional_payload,
     )
     return jwt_encode(payload)
 
@@ -62,6 +63,9 @@ def create_refresh_token(
     user: User, additional_payload: dict[str, Any] | None = None
 ) -> str:
     payload = jwt_user_payload(
-        user, JWT_REFRESH_TYPE, settings.JWT_TTL_REFRESH, additional_payload
+        user,
+        settings.JWT_REFRESH_TYPE,
+        settings.JWT_TTL_REFRESH,
+        additional_payload,
     )
     return jwt_encode(payload)

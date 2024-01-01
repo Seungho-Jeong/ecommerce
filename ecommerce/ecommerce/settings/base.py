@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from django.utils.timezone import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -213,3 +214,11 @@ REST_FRAMEWORK = {
 ENABLE_CONFIRMATION_BY_EMAIL = get_bool_from_env(
     "ENABLE_CONFIRMATION_BY_EMAIL", True
 )
+
+CLIENT_HOST = os.environ.get("CLIENT_HOST", "http://localhost:8000")
+
+JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+JWT_ACCESS_TYPE = "access"
+JWT_REFRESH_TYPE = "refresh"
+JWT_TTL_ACCESS = timedelta(seconds=int(os.environ.get("JWT_TTL_ACCESS", 300)))
+JWT_TTL_REFRESH = timedelta(days=int(os.environ.get("JWT_TTL_REFRESH", 7)))

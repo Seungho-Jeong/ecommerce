@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.middleware.csrf import _get_new_csrf_token
+from django.middleware.csrf import _get_new_csrf_string
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -13,6 +13,7 @@ from .serializers import (
     AccountRegisterSerializer,
     TokenCreateSerializer,
 )
+from .services import AccountService
 
 
 class AccountRegisterView(generics.CreateAPIView):
@@ -27,12 +28,8 @@ class AccountRegisterView(generics.CreateAPIView):
         except ValidationError as e:
             return Response(e.detail, status=e.status_code)
 
-        user = serializer.save()
-        if settings.ENABLE_CONFIRMATION_BY_EMAIL:
-            pin = serializer.generate_pin()
-            emails.send_account_confirmation_email(user, pin)
-        else:
-            serializer.confirm(user)
+        account_service = AccountService(serializer, request)
+        account_service.create_user()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -55,8 +52,7 @@ class AccountConfirmationView(generics.CreateAPIView):
             serializer.is_valid(raise_exception=True)
         except ValidationError as e:
             return Response(e.detail, status=e.status_code)
-
-        serializer.confirm()
+        user.activate()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -65,15 +61,6 @@ class TokenCreateView(generics.CreateAPIView):
     permission_classes = (AllowAny,)
     queryset = User.objects.all()
 
-    def _retrieve_user_from_credentials(
-        self, email: str, password: str
-    ) -> User | None:
-        """자격 증명을 사용하여 사용자를 검색합니다."""
-        user = User.objects.filter(email=email, is_active=True).first()
-        if user and user.check_password(password):
-            return user
-        return None
-
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         try:
@@ -81,27 +68,19 @@ class TokenCreateView(generics.CreateAPIView):
         except ValidationError as e:
             return Response(e.detail, status=e.status_code)
 
-        user = self._retrieve_user_from_credentials(
-            email=serializer.validated_data["email"],
-            password=serializer.validated_data["password"],
-        )
-        access_token = create_access_token(user)
-        refresh_token = create_refresh_token(user)
-        data = {
-            "user": user.uuid,
-            "token": access_token,
-            "refresh_token": refresh_token,
-            "csrf": _get_new_csrf_token(),
-        }
-        response = Response(data, status=status.HTTP_200_OK)
+        account_service = AccountService(serializer, request)
+        user = account_service.get_user()
+        tokens = account_service.create_tokens(user)
+
+        response = Response(tokens, status=status.HTTP_200_OK)
         response.set_cookie(
             key="refresh_token",
-            value=refresh_token,
+            value=tokens["refresh_token"],
             httponly=True,
             samesite="lax",
             secure=settings.SECURE_SSL_REDIRECT,
         )
-        response["X-CSRFToken"] = _get_new_csrf_token()
+        response["X-CSRFToken"] = tokens.pop("csrf")
         response["Access-Control-Expose-Headers"] = "X-CSRFToken"
         response["Access-Control-Allow-Credentials"] = "true"
         response["Access-Control-Allow-Origin"] = settings.CLIENT_HOST

@@ -1,5 +1,5 @@
 from django.utils.translation import gettext_lazy as _
-from rest_framework import serializers
+from rest_framework import serializers, status
 
 
 class PasswordValidationError(serializers.ValidationError):
@@ -22,3 +22,9 @@ class TooManyPinAttemptsError(serializers.ValidationError):
 class ExpiredPinError(serializers.ValidationError):
     default_detail = _("PIN has expired. Please request a new one.")
     default_code = "expired_pin"
+
+
+class InvalidCredentialsError(serializers.ValidationError):
+    default_detail = _("Invalid credentials")
+    default_code = "invalid_credentials"
+    status_code = status.HTTP_401_UNAUTHORIZED

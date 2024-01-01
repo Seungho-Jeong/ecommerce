@@ -7,6 +7,7 @@ from rest_framework.test import APIClient, APITestCase, override_settings
 
 from ..exceptions import (
     ExpiredPinError,
+    InvalidCredentialsError,
     InvalidPinError,
     PasswordValidationError,
     TooManyPinAttemptsError,
@@ -148,18 +149,6 @@ class AccountConfirmationViewTestCase(APITestCase):
         self.assertFalse(serializer.is_valid())
         self.assertRaises(TooManyPinAttemptsError)
 
-    def test_serializer_confirm(self):
-        serializers = self.serializer(instance=self.user, data=self.data)
-        self.assertTrue(serializers.is_valid())
-        self.assertEqual(self.user.is_active, False)
-
-        serializers.confirm()
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.is_active, True)
-        self.assertEqual(self.user.pin, "")
-        self.assertEqual(self.user.pin_sent_at, None)
-        self.assertEqual(self.user.pin_failures, 0)
-
     def test_confirm_account(self):
         self.assertEqual(self.user.is_active, False)
         response = self.client.post(self.url, self.data, format="json")
@@ -176,7 +165,7 @@ class TokenCreateViewTestCase(APITestCase):
     def setUp(self) -> None:
         super().setUp()
         self.client = APIClient()
-        self.url = reverse("token_create")
+        self.url = reverse("signin")
         self.model = User
         self.serializer = TokenCreateSerializer
 
@@ -184,6 +173,7 @@ class TokenCreateViewTestCase(APITestCase):
             email="test@test.com",
             password="test1234!!",
             username="test_user",
+            is_active=True,
         )
         self.data = {
             "email": self.user.email,
@@ -194,10 +184,34 @@ class TokenCreateViewTestCase(APITestCase):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
+    def test_validate_email(self):
+        serializer = self.serializer(data=self.data)
+        self.assertTrue(serializer.is_valid())
+
+        self.data["email"] = "invalid_mail_format.com"
+        serializer = self.serializer(data=self.data)
+        self.assertFalse(serializer.is_valid())
+        self.assertRaises(serializers.ValidationError)
+
+    def test_validate_password(self):
+        serializer = self.serializer(data=self.data)
+        self.assertTrue(serializer.is_valid())
+
+        self.data["password"] = "short"
+        serializer = self.serializer(data=self.data)
+        self.assertFalse(serializer.is_valid())
+        self.assertRaises(PasswordValidationError)
+
+    def test_invalid_credentials(self):
+        self.data["password"] = "invalid_password"
+        response = self.client.post(self.url, self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertRaises(InvalidCredentialsError)
+
     def test_token_create(self):
         response = self.client.post(self.url, self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        self.assertEqual(response.data["email"], self.user.email)
-        self.assertEqual(response.data["username"], self.user.username)
-        self.assertTrue("token" in response.data)
+        self.assertIn("access_token", response.data)
+        self.assertIn("refresh_token", response.data)
+        self.assertIn("refresh_token", response.cookies)
+        self.assertIn("X-CSRFToken", response.headers)
