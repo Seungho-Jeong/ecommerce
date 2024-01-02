@@ -70,3 +70,8 @@ class AccountConfirmationSerializer(serializers.ModelSerializer):
             self.instance.increase_pin_failures()
             raise InvalidPinError
         return value
+
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+TokenObtainPairSerializer
