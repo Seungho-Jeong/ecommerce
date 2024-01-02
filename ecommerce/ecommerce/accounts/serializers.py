@@ -70,15 +70,3 @@ class AccountConfirmationSerializer(serializers.ModelSerializer):
             self.instance.increase_pin_failures()
             raise InvalidPinError
         return value
-
-    def confirm(self) -> User:
-        """계정을 활성화한다."""
-        update_fields = ["is_active"]
-        self.instance.is_active = True
-
-        if settings.ENABLE_CONFIRMATION_BY_EMAIL:
-            update_fields.extend(["pin", "pin_failures", "pin_sent_at"])
-            self.instance.pin = ""
-            self.instance.pin_failures = 0
-            self.instance.pin_sent_at = None
-        self.instance.save(update_fields=update_fields)

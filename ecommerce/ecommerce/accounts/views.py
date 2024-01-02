@@ -10,6 +10,7 @@ from .serializers import (
     AccountConfirmationSerializer,
     AccountRegisterSerializer,
 )
+from .services import AccountService
 
 
 class AccountRegisterView(generics.CreateAPIView):
@@ -24,12 +25,8 @@ class AccountRegisterView(generics.CreateAPIView):
         except ValidationError as e:
             return Response(e.detail, status=e.status_code)
 
-        user = serializer.save()
-        if settings.ENABLE_CONFIRMATION_BY_EMAIL:
-            pin = serializer.generate_pin()
-            emails.send_account_confirmation_email(user, pin)
-        else:
-            serializer.confirm(user)
+        account_service = AccountService(serializer, request)
+        account_service.create_user()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -53,5 +50,5 @@ class AccountConfirmationView(generics.CreateAPIView):
         except ValidationError as e:
             return Response(e.detail, status=e.status_code)
 
-        serializer.confirm()
+        user.activate()
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -147,18 +147,6 @@ class AccountConfirmationViewTestCase(APITestCase):
         self.assertFalse(serializer.is_valid())
         self.assertRaises(TooManyPinAttemptsError)
 
-    def test_serializer_confirm(self):
-        serializers = self.serializer(instance=self.user, data=self.data)
-        self.assertTrue(serializers.is_valid())
-        self.assertEqual(self.user.is_active, False)
-
-        serializers.confirm()
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.is_active, True)
-        self.assertEqual(self.user.pin, "")
-        self.assertEqual(self.user.pin_sent_at, None)
-        self.assertEqual(self.user.pin_failures, 0)
-
     def test_confirm_account(self):
         self.assertEqual(self.user.is_active, False)
         response = self.client.post(self.url, self.data, format="json")
