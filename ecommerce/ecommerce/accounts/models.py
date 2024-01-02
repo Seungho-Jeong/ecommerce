@@ -82,6 +82,14 @@ class User(AbstractUser):
     def __str__(self) -> str:
         return str(self.email)
 
+    def set_pin(self) -> None:
+        """사용자의 PIN을 설정합니다."""
+        self.pin = get_random_string(
+            length=settings.PIN_MAX_LENGTH, allowed_chars="1234567890"
+        )
+        self.save(update_fields=["pin"])
+        return self.pin
+
     def check_pin(self, pin: str) -> bool:
         """사용자가 제공한 PIN이 올바른지 확인합니다."""
         return self.pin == pin
@@ -104,3 +112,13 @@ class User(AbstractUser):
         """사용자의 PIN 실패 횟수를 증가시킵니다."""
         self.pin_failures += 1
         self.save(update_fields=["pin_failures"])
+
+    def activate(self) -> None:
+        """사용자를 활성화합니다."""
+        self.is_active = True
+        self.pin = ""
+        self.pin_sent_at = None
+        self.pin_failures = 0
+        self.save(
+            update_fields=["is_active", "pin", "pin_sent_at", "pin_failures"]
+        )
