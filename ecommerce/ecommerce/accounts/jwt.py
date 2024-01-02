@@ -4,6 +4,11 @@ import jwt
 from django.conf import settings
 from django.utils.timezone import datetime, timedelta
 
+from .exceptions import (
+    JWTDecodeError,
+    JWTInvalidTokenError,
+    JWTTokenSignatureExpiredError,
+)
 from .models import User
 
 
@@ -69,3 +74,25 @@ def create_refresh_token(
         additional_payload,
     )
     return jwt_encode(payload)
+
+
+def get_payload(token: str) -> dict[str, Any]:
+    """JWT 토큰의 payload를 가져온다."""
+    try:
+        payload = jwt_decode(token)
+    except jwt.ExpiredSignatureError:
+        raise JWTTokenSignatureExpiredError
+    except jwt.DecodeError:
+        raise JWTDecodeError
+    except jwt.InvalidTokenError:
+        raise JWTInvalidTokenError
+    return payload
+
+
+def get_user_from_payload(payload: dict[str, Any]) -> User:
+    """JWT 토큰의 payload로부터 유저를 가져온다."""
+    user = User.objects.filter(email=payload["email"], is_active=True).first()
+    jwt_token_key = payload.get("token")
+    if not user or not jwt_token_key or user.jwt_token_key != jwt_token_key:
+        raise JWTInvalidTokenError
+    return user

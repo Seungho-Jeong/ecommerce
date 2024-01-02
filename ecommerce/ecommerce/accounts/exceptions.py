@@ -28,3 +28,21 @@ class InvalidCredentialsError(serializers.ValidationError):
     default_detail = _("Invalid credentials")
     default_code = "invalid_credentials"
     status_code = status.HTTP_401_UNAUTHORIZED
+
+
+class JWTTokenSignatureExpiredError(serializers.ValidationError):
+    default_detail = _("Signature has expired")
+    default_code = "signature_has_expired"
+    status_code = status.HTTP_401_UNAUTHORIZED
+
+
+class JWTDecodeError(serializers.ValidationError):
+    default_detail = _("Error decoding signature")
+    default_code = "error_decoding_signature"
+    status_code = status.HTTP_401_UNAUTHORIZED
+
+
+class JWTInvalidTokenError(serializers.ValidationError):
+    default_detail = _("Invalid token")
+    default_code = "invalid_token"
+    status_code = status.HTTP_401_UNAUTHORIZED
