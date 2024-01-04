@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.middleware.csrf import _get_new_csrf_string
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
 
@@ -12,6 +12,8 @@ from .serializers import (
     AccountConfirmationSerializer,
     AccountRegisterSerializer,
     TokenCreateSerializer,
+    TokenRefreshSerializer,
+    TokenVerifySerializer,
 )
 from .services import AccountService
 
@@ -33,7 +35,7 @@ class AccountRegisterView(generics.CreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class AccountConfirmationView(generics.CreateAPIView):
+class AccountConfirmationView(generics.GenericAPIView):
     serializer_class = AccountConfirmationSerializer
     permission_classes = (AllowAny,)
     queryset = User.objects.all()
@@ -56,7 +58,7 @@ class AccountConfirmationView(generics.CreateAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class TokenCreateView(generics.CreateAPIView):
+class TokenCreateView(generics.GenericAPIView):
     serializer_class = TokenCreateSerializer
     permission_classes = (AllowAny,)
     queryset = User.objects.all()
@@ -81,3 +83,16 @@ class TokenCreateView(generics.CreateAPIView):
             secure=settings.SECURE_SSL_REDIRECT,
         )
         return response
+
+
+class TokenVerifyView(generics.GenericAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = TokenVerifySerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as e:
+            return Response(e.detail, status=e.status_code)
+        return Response(serializer.data, status=status.HTTP_200_OK)

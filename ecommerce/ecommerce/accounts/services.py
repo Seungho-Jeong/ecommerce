@@ -4,7 +4,12 @@ from django.conf import settings
 
 from . import emails
 from .exceptions import InvalidCredentialsError
-from .jwt import create_access_token, create_refresh_token
+from .jwt import (
+    create_access_token,
+    create_refresh_token,
+    get_payload,
+    get_user_from_payload,
+)
 from .models import User
 
 
@@ -16,7 +21,7 @@ class AccountService:
     def create_user(self) -> User:
         """사용자를 생성하고 이메일 인증이 활성화되어 있으면 이메일을 보냅니다."""
         instance = self.serializer.save()
-        if settings.ENABLE_ACCOUNT_CONFIRMATION_BY_EMAIL:
+        if settings.ENABLE_CONFIRMATION_BY_EMAIL:
             pin = instance.set_pin()
             emails.send_account_confirmation_email(instance, pin)
         else:
@@ -48,3 +53,12 @@ class AccountService:
             "access_token": access_token,
             "refresh_token": refresh_token,
         }
+
+    def verify_token(self) -> User:
+        """토큰을 확인하고 사용자를 반환합니다."""
+        access_token = self.request.META.get("HTTP_AUTHORIZATION")
+        if not access_token:
+            raise InvalidCredentialsError
+        payload = get_payload(access_token)
+        user = get_user_from_payload(payload)
+        return user

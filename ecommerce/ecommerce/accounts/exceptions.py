@@ -46,3 +46,15 @@ class JWTInvalidTokenError(serializers.ValidationError):
     default_detail = _("Invalid token")
     default_code = "invalid_token"
     status_code = status.HTTP_401_UNAUTHORIZED
+
+
+class NotConfirmedError(serializers.ValidationError):
+    default_detail = _("Account has not been confirmed")
+    default_code = "not_confirmed"
+    status_code = status.HTTP_401_UNAUTHORIZED
+
+
+class DoesNotExistUserError(serializers.ValidationError):
+    default_detail = _("User does not exist")
+    default_code = "does_not_exist_user"
+    status_code = status.HTTP_401_UNAUTHORIZED

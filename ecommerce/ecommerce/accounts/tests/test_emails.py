@@ -27,9 +27,7 @@ class AccountEmailTestCase(APITestCase):
 
     def test_send_account_confirmation_email(self):
         pin = get_random_string(length=6, allowed_chars="0123456789")
-        emails._send_account_confirmation_email(
-            self.user, self.user.email, pin
-        )
+        emails._send_account_confirmation_email(self.user.email, pin)
 
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, "Verify your account")

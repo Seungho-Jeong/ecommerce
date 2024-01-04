@@ -2,12 +2,17 @@ version: '3.8'
 
 services:
   api:
-    build: ./ecommerce
+    build:
+      context: ./ecommerce
+      dockerfile: ./Dockerfile
+      args:
+        STATIC_URL: "/static/"
     restart: unless-stopped
     ports:
       - 8000:8000
+      - 4001:4001
     volumes:
-      - ./ecommerce:/app
+      - ./ecommerce/ecommerce:/app/ecommerce:Z,cached
     env_file:
       - .env
     depends_on:
@@ -15,6 +20,20 @@ services:
       - redis
     networks:
       - backend
+    command: python manage.py runserver 0.0.0.0:8000
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   worker:
     build: ./ecommerce
@@ -28,6 +47,19 @@ services:
     networks:
       - backend
     command: celery -A ecommerce worker -l info
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   db:
     image: postgres:14-alpine
@@ -44,6 +76,42 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - backend
+    command:
+      [
+        "-c",
+        "shared_buffers=256MB",
+        "-c",
+        "max_connections=1000",
+        "-c",
+        "idle_in_transaction_session_timeout=300000",
+        "-c",
+        "statement_timeout=300000",
+        "-c",
+        "log_statement=all",
+        "-c",
+        "log_min_duration_statement=10",
+        "-c",
+        "shared_preload_libraries=pg_stat_statements",
+        "-c",
+        "tcp_keepalives_idle=300",
+        "-c",
+        "tcp_keepalives_interval=30",
+        "-c",
+        "tcp_keepalives_count=2"
+      ]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:7-alpine
@@ -55,6 +123,19 @@ services:
     command: redis-server --appendonly yes
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:

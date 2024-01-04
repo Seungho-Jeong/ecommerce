@@ -17,6 +17,7 @@ from ..serializers import (
     AccountConfirmationSerializer,
     AccountRegisterSerializer,
     TokenCreateSerializer,
+    TokenVerifySerializer,
 )
 
 
@@ -67,7 +68,7 @@ class AccountRegisterTestCase(APITestCase):
         self.assertEqual(user.username, self.data["username"])
 
     @override_settings(
-        ENABLE_ACCOUNT_CONFIRMATION_BY_EMAIL=True,
+        ENABLE_CONFIRMATION_BY_EMAIL=True,
         ALLOWED_CLIENT_HOSTS=["localhost"],
     )
     @patch("ecommerce.accounts.emails._send_account_confirmation_email")
