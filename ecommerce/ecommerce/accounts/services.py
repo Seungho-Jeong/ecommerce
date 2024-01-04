@@ -1,8 +1,6 @@
 from typing import Any
 
 from django.conf import settings
-from django.middleware.csrf import _get_new_csrf_string
-from django.utils.crypto import get_random_string
 
 from . import emails
 from .exceptions import InvalidCredentialsError
@@ -49,5 +47,4 @@ class AccountService:
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
-            "csrf": _get_new_csrf_string(),
         }

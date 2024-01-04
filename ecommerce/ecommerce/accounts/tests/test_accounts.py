@@ -214,4 +214,3 @@ class TokenCreateViewTestCase(APITestCase):
         self.assertIn("access_token", response.data)
         self.assertIn("refresh_token", response.data)
         self.assertIn("refresh_token", response.cookies)
-        self.assertIn("X-CSRFToken", response.headers)

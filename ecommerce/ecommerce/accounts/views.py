@@ -80,10 +80,4 @@ class TokenCreateView(generics.CreateAPIView):
             samesite="lax",
             secure=settings.SECURE_SSL_REDIRECT,
         )
-        response["X-CSRFToken"] = tokens.pop("csrf")
-        response["Access-Control-Expose-Headers"] = "X-CSRFToken"
-        response["Access-Control-Allow-Credentials"] = "true"
-        response["Access-Control-Allow-Origin"] = settings.CLIENT_HOST
-        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
