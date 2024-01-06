@@ -10,6 +10,7 @@ from .exceptions import (
     ExpiredPinError,
     InvalidCredentialsError,
     InvalidPinError,
+    JWTInvalidTokenError,
     NotConfirmedError,
     PasswordValidationError,
     TooManyPinAttemptsError,
@@ -113,19 +114,22 @@ class TokenRefreshSerializer(serializers.Serializer):
 
 
 class TokenVerifySerializer(serializers.Serializer):
-    access_token = serializers.CharField(write_only=True)
+    token = serializers.CharField(write_only=True)
     user = AccountRegisterSerializer(read_only=True)
 
     class Meta:
-        fields = ("access_token", "user")
+        fields = ("token", "user")
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.user = None
 
-    def validate_access_token(self, value: str) -> str:
-        payload = get_payload(value)
-        self.user = get_user_from_payload(payload)
+    def validate_token(self, value: str) -> str:
+        try:
+            payload = get_payload(value)
+            self.user = get_user_from_payload(payload)
+        except Exception as e:
+            raise JWTInvalidTokenError from e
         return value
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:

@@ -218,8 +218,12 @@ ENABLE_CONFIRMATION_BY_EMAIL = get_bool_from_env(
 
 CLIENT_HOST = os.environ.get("CLIENT_HOST", "http://localhost:8000")
 
+AUTH_HEADER_TYPE = "Bearer"
+AUTH_HEADER_REALM = "api"
+
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_ACCESS_TYPE = "access"
 JWT_REFRESH_TYPE = "refresh"
 JWT_TTL_ACCESS = timedelta(seconds=int(os.environ.get("JWT_TTL_ACCESS", 300)))
 JWT_TTL_REFRESH = timedelta(days=int(os.environ.get("JWT_TTL_REFRESH", 7)))
+SECURE_SSL_REDIRECT = get_bool_from_env("SECURE_SSL_REDIRECT", False)

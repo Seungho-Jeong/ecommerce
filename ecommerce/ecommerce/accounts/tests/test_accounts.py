@@ -9,6 +9,9 @@ from ..exceptions import (
     ExpiredPinError,
     InvalidCredentialsError,
     InvalidPinError,
+    JWTDecodeError,
+    JWTInvalidTokenError,
+    JWTTokenSignatureExpiredError,
     PasswordValidationError,
     TooManyPinAttemptsError,
 )
@@ -19,6 +22,7 @@ from ..serializers import (
     TokenCreateSerializer,
     TokenVerifySerializer,
 )
+from ..services import AccountService
 
 
 class AccountRegisterTestCase(APITestCase):
@@ -209,9 +213,67 @@ class TokenCreateViewTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertRaises(InvalidCredentialsError)
 
+    @override_settings(JWT_ACCESS_TYPE="access", JWT_REFRESH_TYPE="refresh")
     def test_token_create(self):
         response = self.client.post(self.url, self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("access_token", response.data)
-        self.assertIn("refresh_token", response.data)
-        self.assertIn("refresh_token", response.cookies)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertIn("refresh", response.cookies)
+
+
+class TokenVerifyViewTestCase(APITestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = APIClient()
+        self.token_url = reverse("signin")
+        self.url = reverse("token_verify")
+        self.model = User
+        self.serializer = TokenVerifySerializer
+
+        self.user = self.model.objects.create_user(
+            email="test@test.com",
+            password="test1234!!",
+            username="test_user",
+            is_active=True,
+        )
+        self.service = AccountService(self.serializer)
+        self.token = self.service.create_tokens(self.user)
+        self.data = {"token": self.token["access"]}
+
+    def test_serializer(self):
+        serializer = self.serializer(data=self.data)
+        self.assertTrue(serializer.is_valid())
+
+    def test_validate_token(self):
+        serializer = self.serializer(data=self.data)
+        self.assertTrue(serializer.is_valid())
+
+        self.data["token"] = "invalid_token"
+        with self.assertRaises(JWTInvalidTokenError):
+            serializer = self.serializer(data=self.data)
+            self.assertFalse(serializer.is_valid())
+
+    def test_token_verify(self):
+        response = self.client.post(self.url, self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    @override_settings(JWT_TTL_ACCESS=timezone.timedelta(seconds=0))
+    def test_token_verify_expired(self):
+        self.token = self.service.create_tokens(self.user)
+        self.data["token"] = self.token["access"]
+        response = self.client.post(self.url, self.data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn(
+            str(JWTInvalidTokenError.default_detail), response.data["detail"]
+        )
+
+    def test_token_verify_invalid(self):
+        self.data["token"] = "invalid_token"
+        response = self.client.post(self.url, self.data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn(
+            str(JWTInvalidTokenError.default_detail), response.data["detail"]
+        )

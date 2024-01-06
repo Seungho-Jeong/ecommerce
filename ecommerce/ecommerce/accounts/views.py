@@ -76,8 +76,8 @@ class TokenCreateView(generics.GenericAPIView):
 
         response = Response(tokens, status=status.HTTP_200_OK)
         response.set_cookie(
-            key="refresh_token",
-            value=tokens["refresh_token"],
+            key=settings.JWT_REFRESH_TYPE,
+            value=tokens[settings.JWT_REFRESH_TYPE],
             httponly=True,
             samesite="lax",
             secure=settings.SECURE_SSL_REDIRECT,
@@ -86,7 +86,7 @@ class TokenCreateView(generics.GenericAPIView):
 
 
 class TokenVerifyView(generics.GenericAPIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
     serializer_class = TokenVerifySerializer
 
     def post(self, request, *args, **kwargs):

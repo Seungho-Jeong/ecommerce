@@ -50,15 +50,15 @@ class AccountService:
         access_token = create_access_token(user)
         refresh_token = create_refresh_token(user)
         return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
+            settings.JWT_ACCESS_TYPE: access_token,
+            settings.JWT_REFRESH_TYPE: refresh_token,
         }
 
     def verify_token(self) -> User:
         """토큰을 확인하고 사용자를 반환합니다."""
-        access_token = self.request.META.get("HTTP_AUTHORIZATION")
-        if not access_token:
+        token = self.request.META.get("HTTP_AUTHORIZATION")
+        if not token:
             raise InvalidCredentialsError
-        payload = get_payload(access_token)
+        payload = get_payload(token)
         user = get_user_from_payload(payload)
         return user
