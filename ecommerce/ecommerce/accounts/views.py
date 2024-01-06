@@ -11,6 +11,7 @@ from .models import User
 from .serializers import (
     AccountConfirmationSerializer,
     AccountRegisterSerializer,
+    PasswordValidationError,
     TokenCreateSerializer,
     TokenRefreshSerializer,
     TokenVerifySerializer,
@@ -27,7 +28,7 @@ class AccountRegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
-        except ValidationError as e:
+        except (ValidationError, PasswordValidationError) as e:
             return Response(e.detail, status=e.status_code)
 
         account_service = AccountService(serializer, request)

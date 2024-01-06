@@ -30,7 +30,7 @@ class BaseAccountSerializer(serializers.ModelSerializer):
     def validate_password(self, value: str) -> str:
         try:
             validate_password(password=value)
-        except serializers.ValidationError as e:
+        except Exception as e:
             raise PasswordValidationError(e) from e
         return value
 

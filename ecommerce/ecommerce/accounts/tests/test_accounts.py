@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from django.core.validators import EmailValidator
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import serializers, status
@@ -9,9 +10,7 @@ from ..exceptions import (
     ExpiredPinError,
     InvalidCredentialsError,
     InvalidPinError,
-    JWTDecodeError,
     JWTInvalidTokenError,
-    JWTTokenSignatureExpiredError,
     PasswordValidationError,
     TooManyPinAttemptsError,
 )
@@ -44,23 +43,27 @@ class AccountRegisterTestCase(APITestCase):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
-    def test_validate_email(self):
+    def test_validate_invalid_email(self):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
         self.data["email"] = "invalid_mail_format.com"
         serializer = self.serializer(data=self.data)
         self.assertFalse(serializer.is_valid())
-        self.assertRaises(serializers.ValidationError)
+        self.assertIn(
+            "Enter a valid email address.", serializer.errors["email"]
+        )
 
-    def test_validate_password(self):
+    def test_validate_invalid_password(self):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
         self.data["password"] = "short"
         serializer = self.serializer(data=self.data)
         self.assertFalse(serializer.is_valid())
-        self.assertRaises(PasswordValidationError)
+
+        with self.assertRaises(PasswordValidationError):
+            serializer.validate_password(self.data["password"])
 
     def test_create(self):
         serializer = self.serializer(data=self.data)
@@ -123,14 +126,16 @@ class AccountConfirmationViewTestCase(APITestCase):
         serializer = self.serializer(instance=self.user, data=self.data)
         self.assertTrue(serializer.is_valid())
 
-    def test_validate_pin(self):
+    def test_validate_invalid_pin(self):
         serializer = self.serializer(instance=self.user, data=self.data)
         self.assertTrue(serializer.is_valid())
 
         self.data["pin"] = "000000"
         serializer = self.serializer(instance=self.user, data=self.data)
         self.assertFalse(serializer.is_valid())
-        self.assertRaises(InvalidPinError)
+
+        with self.assertRaises(InvalidPinError):
+            serializer.validate_pin(self.data["pin"])
 
     @override_settings(PIN_EXPIRE_TIMEDELTA_SECONDS=60)
     def test_validate_pin_expired(self):
@@ -141,7 +146,9 @@ class AccountConfirmationViewTestCase(APITestCase):
         self.user.save()
         serializer = self.serializer(instance=self.user, data=self.data)
         self.assertFalse(serializer.is_valid())
-        self.assertRaises(ExpiredPinError)
+
+        with self.assertRaises(ExpiredPinError):
+            serializer.validate_pin(self.data["pin"])
 
     @override_settings(PIN_FAILURES_LIMIT=5)
     def test_validate_pin_failures_limit(self):
@@ -152,7 +159,9 @@ class AccountConfirmationViewTestCase(APITestCase):
         self.user.save()
         serializer = self.serializer(instance=self.user, data=self.data)
         self.assertFalse(serializer.is_valid())
-        self.assertRaises(TooManyPinAttemptsError)
+
+        with self.assertRaises(TooManyPinAttemptsError):
+            serializer.validate_pin(self.data["pin"])
 
     def test_confirm_account(self):
         self.assertEqual(self.user.is_active, False)
@@ -189,29 +198,32 @@ class TokenCreateViewTestCase(APITestCase):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
-    def test_validate_email(self):
+    def test_validate_invalid_email(self):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
         self.data["email"] = "invalid_mail_format.com"
         serializer = self.serializer(data=self.data)
         self.assertFalse(serializer.is_valid())
-        self.assertRaises(serializers.ValidationError)
 
-    def test_validate_password(self):
+        with self.assertRaises(InvalidCredentialsError):
+            serializer.validate_email(self.data["email"])
+
+    def test_validate_invalid_password(self):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
         self.data["password"] = "short"
         serializer = self.serializer(data=self.data)
         self.assertFalse(serializer.is_valid())
-        self.assertRaises(PasswordValidationError)
+
+        with self.assertRaises(PasswordValidationError):
+            serializer.validate_password(self.data["password"])
 
     def test_invalid_credentials(self):
         self.data["password"] = "invalid_password"
         response = self.client.post(self.url, self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertRaises(InvalidCredentialsError)
 
     @override_settings(JWT_ACCESS_TYPE="access", JWT_REFRESH_TYPE="refresh")
     def test_token_create(self):
@@ -245,7 +257,7 @@ class TokenVerifyViewTestCase(APITestCase):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
-    def test_validate_token(self):
+    def test_validate_invalid_token(self):
         serializer = self.serializer(data=self.data)
         self.assertTrue(serializer.is_valid())
 
@@ -259,7 +271,7 @@ class TokenVerifyViewTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     @override_settings(JWT_TTL_ACCESS=timezone.timedelta(seconds=0))
-    def test_token_verify_expired(self):
+    def test_expired_token(self):
         self.token = self.service.create_tokens(self.user)
         self.data["token"] = self.token["access"]
         response = self.client.post(self.url, self.data, format="json")
@@ -269,7 +281,7 @@ class TokenVerifyViewTestCase(APITestCase):
             str(JWTInvalidTokenError.default_detail), response.data["detail"]
         )
 
-    def test_token_verify_invalid(self):
+    def test_invalid_token(self):
         self.data["token"] = "invalid_token"
         response = self.client.post(self.url, self.data, format="json")
 
