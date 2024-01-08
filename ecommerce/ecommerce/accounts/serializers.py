@@ -100,39 +100,35 @@ class TokenCreateSerializer(BaseAccountSerializer):
         return value
 
 
-class TokenRefreshSerializer(serializers.Serializer):
-    refresh_token = serializers.CharField(write_only=True)
-    user = AccountRegisterSerializer(read_only=True)
+class BaseTokenInputSerializer(serializers.Serializer):
+    """토큰 확인 시리얼라이저의 베이스 클래스"""
 
-    class Meta:
-        fields = ("refresh_token", "user")
-
-    def validate_refresh_token(self, value: str) -> str:
-        payload = get_payload(value)
-        _user = get_user_from_payload(payload)
-        return value
-
-
-class TokenVerifySerializer(serializers.Serializer):
     token = serializers.CharField(write_only=True)
     user = AccountRegisterSerializer(read_only=True)
 
     class Meta:
         fields = ("token", "user")
 
-    def __init__(self, *args: Any, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.user = None
-
-    def validate_token(self, value: str) -> str:
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        """토큰이 유효한지 확인한다."""
         try:
-            payload = get_payload(value)
-            self.user = get_user_from_payload(payload)
+            payload = get_payload(attrs["token"])
+            user = get_user_from_payload(payload)
         except Exception as e:
             raise JWTInvalidTokenError from e
-        return value
+        attrs["user"] = user
+        return attrs
 
-    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
-        validated_data = super().validate(attrs)
-        validated_data["user"] = self.user
-        return validated_data
+
+class TokenRefreshSerializer(BaseTokenInputSerializer):
+    """토큰 갱신 시리얼라이저"""
+
+    class Meta:
+        fields = BaseTokenInputSerializer.Meta.fields
+
+
+class TokenVerifySerializer(BaseTokenInputSerializer):
+    """토큰 확인 시리얼라이저"""
+
+    class Meta:
+        fields = BaseTokenInputSerializer.Meta.fields

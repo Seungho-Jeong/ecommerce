@@ -19,14 +19,14 @@ def jwt_base_payload(exp_delta: timedelta) -> dict[str, Any]:
 
 def jwt_encode(payload: dict[str, Any]) -> str:
     return jwt.encode(
-        payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
     )
 
 
 def jwt_decode(token: str) -> dict[str, Any]:
     return jwt.decode(
         token,
-        settings.SECRET_KEY,
+        settings.JWT_SECRET_KEY,
         algorithms=settings.JWT_ALGORITHM,
     )
 

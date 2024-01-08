@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.middleware.csrf import _get_new_csrf_string
 from rest_framework import generics, status
+from rest_framework.exceptions import APIException
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
@@ -11,6 +12,7 @@ from .models import User
 from .serializers import (
     AccountConfirmationSerializer,
     AccountRegisterSerializer,
+    JWTInvalidTokenError,
     PasswordValidationError,
     TokenCreateSerializer,
     TokenRefreshSerializer,
@@ -77,6 +79,13 @@ class TokenCreateView(generics.GenericAPIView):
 
         response = Response(tokens, status=status.HTTP_200_OK)
         response.set_cookie(
+            key=settings.JWT_ACCESS_TYPE,
+            value=tokens[settings.JWT_ACCESS_TYPE],
+            httponly=True,
+            samesite="lax",
+            secure=settings.SECURE_SSL_REDIRECT,
+        )
+        response.set_cookie(
             key=settings.JWT_REFRESH_TYPE,
             value=tokens[settings.JWT_REFRESH_TYPE],
             httponly=True,
@@ -97,3 +106,35 @@ class TokenVerifyView(generics.GenericAPIView):
         except ValidationError as e:
             return Response(e.detail, status=e.status_code)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class TokenRefreshView(generics.GenericAPIView):
+    permission_classes = (AllowAny,)
+    serializer_class = TokenRefreshSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as e:
+            return Response(e.detail, status=e.status_code)
+
+        account_service = AccountService(serializer, request)
+        tokens = account_service.refresh_token()
+
+        response = Response(tokens, status=status.HTTP_200_OK)
+        response.set_cookie(
+            key=settings.JWT_ACCESS_TYPE,
+            value=tokens[settings.JWT_ACCESS_TYPE],
+            httponly=True,
+            samesite="lax",
+            secure=settings.SECURE_SSL_REDIRECT,
+        )
+        response.set_cookie(
+            key=settings.JWT_REFRESH_TYPE,
+            value=tokens[settings.JWT_REFRESH_TYPE],
+            httponly=True,
+            samesite="lax",
+            secure=settings.SECURE_SSL_REDIRECT,
+        )
+        return response

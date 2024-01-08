@@ -7,10 +7,10 @@ services:
       dockerfile: ./Dockerfile
       args:
         STATIC_URL: "/static/"
-    restart: unless-stopped
+    command: ["sh", "-c", "pip install debugpy -t /tmp && python /tmp/debugpy --wait-for-client --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --nothreading"]
     ports:
       - 8000:8000
-      - 4001:4001
+      - 5678:5678
     volumes:
       - ./ecommerce/ecommerce:/app/ecommerce:Z,cached
     env_file:
@@ -20,7 +20,7 @@ services:
       - redis
     networks:
       - backend
-    command: python manage.py runserver 0.0.0.0:8000
+    restart: unless-stopped
     deploy:
       resources:
         limits:
@@ -37,6 +37,7 @@ services:
 
   worker:
     build: ./ecommerce
+    command: celery -A ecommerce worker -l info
     ports:
       - 8001:8000
     env_file:
@@ -46,7 +47,7 @@ services:
       - db
     networks:
       - backend
-    command: celery -A ecommerce worker -l info
+    restart: unless-stopped
     deploy:
       resources:
         limits:
@@ -63,19 +64,6 @@ services:
 
   db:
     image: postgres:14-alpine
-    restart: unless-stopped
-    ports:
-      - 5432:5432
-    env_file:
-      - .env
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - backend
     command:
       [
         "-c",
@@ -99,6 +87,19 @@ services:
         "-c",
         "tcp_keepalives_count=2"
       ]
+    ports:
+      - 5432:5432
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    restart: unless-stopped
     deploy:
       resources:
         limits:
@@ -115,14 +116,14 @@ services:
 
   redis:
     image: redis:7-alpine
-    restart: unless-stopped
+    command: redis-server --appendonly yes
     ports:
       - 6379:6379
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
     networks:
       - backend
+    restart: unless-stopped
     deploy:
       resources:
         limits:

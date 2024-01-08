@@ -1,9 +1,9 @@
 from unittest.mock import patch
 
-from django.core.validators import EmailValidator
 from django.urls import reverse
 from django.utils import timezone
-from rest_framework import serializers, status
+from freezegun import freeze_time
+from rest_framework import status
 from rest_framework.test import APIClient, APITestCase, override_settings
 
 from ..exceptions import (
@@ -19,6 +19,7 @@ from ..serializers import (
     AccountConfirmationSerializer,
     AccountRegisterSerializer,
     TokenCreateSerializer,
+    TokenRefreshSerializer,
     TokenVerifySerializer,
 )
 from ..services import AccountService
@@ -250,8 +251,8 @@ class TokenVerifyViewTestCase(APITestCase):
             is_active=True,
         )
         self.service = AccountService(self.serializer)
-        self.token = self.service.create_tokens(self.user)
-        self.data = {"token": self.token["access"]}
+        self.tokens = self.service.create_tokens(self.user)
+        self.data = {"token": self.tokens["access"]}
 
     def test_serializer(self):
         serializer = self.serializer(data=self.data)
@@ -272,8 +273,8 @@ class TokenVerifyViewTestCase(APITestCase):
 
     @override_settings(JWT_TTL_ACCESS=timezone.timedelta(seconds=0))
     def test_expired_token(self):
-        self.token = self.service.create_tokens(self.user)
-        self.data["token"] = self.token["access"]
+        self.tokens = self.service.create_tokens(self.user)
+        self.data["token"] = self.tokens["access"]
         response = self.client.post(self.url, self.data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -283,6 +284,92 @@ class TokenVerifyViewTestCase(APITestCase):
 
     def test_invalid_token(self):
         self.data["token"] = "invalid_token"
+        response = self.client.post(self.url, self.data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn(
+            str(JWTInvalidTokenError.default_detail), response.data["detail"]
+        )
+
+    def test_inactive_user(self):
+        self.user.is_active = False
+        self.user.save()
+        response = self.client.post(self.url, self.data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn(
+            str(JWTInvalidTokenError.default_detail), response.data["detail"]
+        )
+
+
+class TokenRefreshViewTestCase(APITestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = APIClient()
+        self.token_url = reverse("signin")
+        self.url = reverse("token_refresh")
+        self.model = User
+        self.serializer = TokenRefreshSerializer
+
+        self.user = self.model.objects.create_user(
+            email="test@test.com",
+            password="test1234!!",
+            username="test_user",
+            is_active=True,
+        )
+        self.service = AccountService(self.serializer)
+        self.tokens = self.service.create_tokens(self.user)
+        self.access_token = self.tokens["access"]
+        self.refresh_token = self.tokens["refresh"]
+        self.data = {"token": self.refresh_token}
+
+    def test_serializer(self):
+        serializer = self.serializer(data=self.data)
+        self.assertTrue(serializer.is_valid())
+
+    def test_validate_invalid_token(self):
+        serializer = self.serializer(data=self.data)
+        self.assertTrue(serializer.is_valid())
+
+        self.data["token"] = "invalid_token"
+        with self.assertRaises(JWTInvalidTokenError):
+            serializer = self.serializer(data=self.data)
+            self.assertFalse(serializer.is_valid())
+
+    def test_token_refresh(self):
+        refresh_time = timezone.datetime.utcnow() + timezone.timedelta(
+            seconds=1
+        )
+        with freeze_time(refresh_time):
+            response = self.client.post(self.url, self.data, format="json")
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertIn("access", response.data)
+            self.assertNotEqual(self.access_token, response.data["access"])
+
+    @override_settings(JWT_TTL_REFRESH=timezone.timedelta(seconds=0))
+    def test_expired_token(self):
+        self.tokens = self.service.create_tokens(self.user)
+        self.data["token"] = self.tokens["refresh"]
+        response = self.client.post(self.url, self.data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn(
+            str(JWTInvalidTokenError.default_detail), response.data["detail"]
+        )
+
+    def test_invalid_token(self):
+        self.data["token"] = "invalid_token"
+        response = self.client.post(self.url, self.data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn(
+            str(JWTInvalidTokenError.default_detail), response.data["detail"]
+        )
+
+    def test_inactive_user(self):
+        self.user.is_active = False
+        self.user.save()
         response = self.client.post(self.url, self.data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

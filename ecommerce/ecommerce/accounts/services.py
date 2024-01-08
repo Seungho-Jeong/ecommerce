@@ -54,11 +54,11 @@ class AccountService:
             settings.JWT_REFRESH_TYPE: refresh_token,
         }
 
-    def verify_token(self) -> User:
-        """토큰을 확인하고 사용자를 반환합니다."""
-        token = self.request.META.get("HTTP_AUTHORIZATION")
-        if not token:
-            raise InvalidCredentialsError
+    def refresh_token(self) -> dict[str, Any]:
+        """토큰을 갱신하고 새로운 토큰을 반환합니다."""
+        token = self.serializer.validated_data["token"]
         payload = get_payload(token)
+        if payload["type"] != settings.JWT_REFRESH_TYPE:
+            raise InvalidCredentialsError
         user = get_user_from_payload(payload)
-        return user
+        return self.create_tokens(user)

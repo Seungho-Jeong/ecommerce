@@ -35,7 +35,7 @@ def get_bool_from_env(name, default_value):
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "dummy-secret-key"
+SECRET_KEY = os.environ.get("SECRET_KEY", "secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -221,6 +221,7 @@ CLIENT_HOST = os.environ.get("CLIENT_HOST", "http://localhost:8000")
 AUTH_HEADER_TYPE = "Bearer"
 AUTH_HEADER_REALM = "api"
 
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "jwt-secret")
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_ACCESS_TYPE = "access"
 JWT_REFRESH_TYPE = "refresh"

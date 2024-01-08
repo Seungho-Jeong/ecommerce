@@ -11,7 +11,7 @@ RUN apt-get -y update \
 COPY requirements_dev.txt /app/
 # COPY requirements.txt /app/
 WORKDIR /app
-RUN pip install -r requirements_dev.txt
+RUN pip install --upgrade pip && pip install -r requirements_dev.txt
 # RUN pip install -r requirements.txt
 
 ### Final image
@@ -38,8 +38,8 @@ RUN mkdir -p /app/media /app/static \
 
 COPY --from=build-python /usr/local/lib/python3.10/site-packages/ /usr/local/lib/python3.10/site-packages/
 COPY --from=build-python /usr/local/bin/ /usr/local/bin/
-COPY . /app
 WORKDIR /app
+COPY . /app
 
 ARG STATIC_URL
 ENV STATIC_URL ${STATIC_URL:-/static/}
@@ -52,5 +52,5 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ARG COMMIT_ID
 ARG VERSION
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:4001"]
 # CMD ["gunicorn", "--bind", ":8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "ecommerce.asgi:application"]
