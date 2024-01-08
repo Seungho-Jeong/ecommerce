@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from django.utils.timezone import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -34,7 +35,7 @@ def get_bool_from_env(name, default_value):
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "dummy-secret-key"
+SECRET_KEY = os.environ.get("SECRET_KEY", "secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -191,6 +192,7 @@ EMAIL_USE_SSL = get_bool_from_env("EMAIL_USE_SSL", False)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "ecommerce.accounts.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
@@ -213,3 +215,16 @@ REST_FRAMEWORK = {
 ENABLE_CONFIRMATION_BY_EMAIL = get_bool_from_env(
     "ENABLE_CONFIRMATION_BY_EMAIL", True
 )
+
+CLIENT_HOST = os.environ.get("CLIENT_HOST", "http://localhost:8000")
+
+AUTH_HEADER_TYPE = "Bearer"
+AUTH_HEADER_REALM = "api"
+
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "jwt-secret")
+JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+JWT_ACCESS_TYPE = "access"
+JWT_REFRESH_TYPE = "refresh"
+JWT_TTL_ACCESS = timedelta(seconds=int(os.environ.get("JWT_TTL_ACCESS", 300)))
+JWT_TTL_REFRESH = timedelta(days=int(os.environ.get("JWT_TTL_REFRESH", 7)))
+SECURE_SSL_REDIRECT = get_bool_from_env("SECURE_SSL_REDIRECT", False)
